@@ -1,0 +1,173 @@
+# You can override the included template(s) by including variable overrides
+# SAST customization: https://docs.gitlab.com/ee/user/application_security/sast/#customizing-the-sast-settings
+# Secret Detection customization: https://docs.gitlab.com/ee/user/application_security/secret_detection/#customizing-settings
+# Dependency Scanning customization: https://docs.gitlab.com/ee/user/application_security/dependency_scanning/#customizing-the-dependency-scanning-settings
+# Container Scanning customization: https://docs.gitlab.com/ee/user/application_security/container_scanning/#customizing-the-container-scanning-settings
+# Note that environment variables can be set in several places
+# See https://docs.gitlab.com/ee/ci/variables/#cicd-variable-precedence
+variables:
+  BUILD_ARG_GO_VERSION: "1.25.0"
+  BUILD_ARG_ALPINE_VERSION: "3.22"
+  GOLANGCI_LINT_VERSION: "v2.7.2-alpine"
+  REGISTRY_HOST_RO: harbor.vseinstrumenti.ru
+  REGISTRY_HOST_RW: harbor-ox1.vseinstrumenti.ru
+
+stages:
+  - test
+  - build
+  - upload
+  - release
+
+.test:
+  stage: test
+  tags:
+    - ci-docker
+  allow_failure: false
+  interruptible: true
+
+# unit:
+#   extends:
+#     - .test
+#   image: ${REGISTRY_HOST_RO}/dockerhub/library/golang:${BUILD_ARG_GO_VERSION}-alpine${BUILD_ARG_ALPINE_VERSION}
+#   before_script:
+#     - apk update && apk --no-cache --update add build-base git
+#     - go install github.com/axw/gocov/gocov@latest
+#     - go install github.com/AlekSi/gocov-xml@latest
+#     - go install gotest.tools/gotestsum@latest
+# - ./scripts/gen_coverage.sh
+# script:
+#   - gotestsum --junitfile junit_report.xml -- -tags mock,integration -race -v -coverprofile=coverage.out -count=$(nproc) ./...
+#   - cat coverage.out | grep -v '/trace_' | grep -v '/mocks/' > coverage2.out
+#   - go tool cover -func=coverage2.out
+#   - gocov convert coverage2.out | gocov-xml > cobertura_report.xml
+# coverage: '/^total:\s+\(statements\)\s+(\d+.\d+\%)$/'
+# artifacts:
+#   reports:
+#     junit: junit_report.xml
+#     coverage_report:
+#       coverage_format: cobertura
+#       path: cobertura_report.xml
+# rules:
+#   - when: always
+# variables:
+#   GO111MODULE: auto
+#   CGO_ENABLED: 1
+
+lint:
+  extends:
+    - .test
+  image: ${REGISTRY_HOST_RO}/dockerhub/golangci/golangci-lint:${GOLANGCI_LINT_VERSION}
+  script:
+    - |
+      # We need this go flag because it started to error after golangci-lint is using Go 1.21.
+      # TODO(slok): Remove it on next (>1.54.1) golangci-lint upgrade to check if this problem has gone.
+      export GOFLAGS="-buildvcs=false"
+      ./scripts/check/check.sh
+  when: always
+
+sast:
+  extends:
+    - .test
+include:
+  - template: Security/SAST.gitlab-ci.yml
+
+build app:
+  stage: build
+  image: ${REGISTRY_HOST_RO}/dockerhub/library/golang:${BUILD_ARG_GO_VERSION}-alpine${BUILD_ARG_ALPINE_VERSION}
+  before_script:
+    - apk update && apk --no-cache --update add build-base git bash
+  script:
+    - make ci-build
+  artifacts:
+    paths:
+      - bin/
+    untracked: true
+    expire_in: 30 min
+  when: always
+  tags:
+    - ci-docker
+
+build for release:
+  stage: build
+  image: ${REGISTRY_HOST_RO}/dockerhub/library/golang:${BUILD_ARG_GO_VERSION}-alpine${BUILD_ARG_ALPINE_VERSION}
+  before_script:
+    - apk update && apk --no-cache --update add build-base git bash zip
+  script:
+    - | # Extract the version number from CI_COMMIT_TAG and remove the 'v' prefix if present, save to file for use in next jobs
+      echo PACKAGE_VERSION=$(echo "$CI_COMMIT_TAG" | sed 's/^v//') > package_version.env
+    - |
+      echo Building release binaries for version: ${CI_COMMIT_TAG}
+    - VERSION=${CI_COMMIT_TAG} ./scripts/build/bin/build-all.sh
+  artifacts:
+    paths:
+      - bin/
+    untracked: true
+    reports:
+      dotenv: package_version.env
+  only:
+    - tags
+  tags:
+    - ci-docker
+  when: manual
+
+upload:
+  stage: upload
+  image: ${REGISTRY_HOST_RO}/dockerhub/curlimages/curl:latest
+  only:
+    - tags
+  needs:
+    - job: build for release
+      artifacts: true
+  script:
+    - |
+      echo PACKAGE_VERSION=${PACKAGE_VERSION} > package_info.env
+      # Construct PACKAGE_REGISTRY_URL
+      export PACKAGE_REGISTRY_URL="${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/packages/generic/${CI_PROJECT_NAME}/${PACKAGE_VERSION}"
+      echo PACKAGE_REGISTRY_URL=${PACKAGE_REGISTRY_URL} >> package_info.env
+    - |
+      echo Uploading package version: ${PACKAGE_VERSION}
+    - |
+      for file in bin/*; do
+        if [ -f "$file" ]; then
+          echo Uploading "$file"
+          echo "${PACKAGE_REGISTRY_URL}/$(basename "$file")" >> artifacts_urls.txt
+          curl --header "JOB-TOKEN: ${CI_JOB_TOKEN}" --upload-file "$file" "${PACKAGE_REGISTRY_URL}/$(basename "$file")"
+        fi
+      done
+  artifacts:
+    paths:
+      # - .release/
+      - artifacts_urls.txt
+    reports:
+      dotenv: package_info.env
+  tags:
+    - ci-docker
+  when: manual
+
+publish-to-gitlab:
+  stage: release
+  image: registry.gitlab.com/gitlab-org/release-cli:latest
+  before_script:
+    - apk update && apk --no-cache --update add jq
+  only:
+    - tags
+  script:
+    - echo "Pulish release ${PACKAGE_VERSION} to gitlab"
+    - echo "Prepare assets links".
+    - |
+      assets_array="[]"
+      # Read asset URLs from the file and add them to the assets array
+      while IFS= read -r asset_url; do
+        asset_name=$(basename "$asset_url")
+        asset_data="{\"name\": \"$asset_name\", \"url\": \"$asset_url\"}"
+        assets_array=$(echo "$assets_array" | jq -c ". + [$asset_data]")
+      done < artifacts_urls.txt
+
+      # Create the release with the assets array
+      release-cli create --name "$CI_COMMIT_TAG" --tag-name "$CI_COMMIT_TAG" --description "$CI_COMMIT_TAG_MESSAGE" --assets-link "$assets_array"
+  needs:
+    - job: upload
+      artifacts: true
+  tags:
+    - ci-docker
+  when: manual
