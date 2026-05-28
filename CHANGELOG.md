@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+### Added
+
+- `server`: Support HTTP request/response MCP with the `--mcp-enabled` and `--mcp-path` flags.
+- MCP: Add the `context`, `list_slos` and `get_slo` tools.
+
 ### Fixed
 
 - `server --prometheus-header` no longer panics with "assignment to entry in nil map".
