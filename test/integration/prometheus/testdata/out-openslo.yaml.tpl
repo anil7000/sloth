@@ -196,4 +196,4 @@ groups:
       sloth_service: svc01
       sloth_slo: slo1-0
       sloth_spec: openslo/v1alpha
-      sloth_version: {{ .version }}
+      sloth_version: {{ yamlValue .version }}

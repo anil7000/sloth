@@ -170,7 +170,7 @@ groups:
       sloth_service: svc01
       sloth_slo: slo1
       sloth_spec: prometheus/v1
-      sloth_version: {{ .version }}
+      sloth_version: {{ yamlValue .version }}
 - name: sloth-slo-alerts-svc01-slo1
   rules:
   - alert: myServiceAlert
@@ -392,4 +392,4 @@ groups:
       sloth_service: svc01
       sloth_slo: slo02
       sloth_spec: prometheus/v1
-      sloth_version: {{ .version }}
+      sloth_version: {{ yamlValue .version }}

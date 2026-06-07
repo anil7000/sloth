@@ -12,6 +12,7 @@ import (
 	"github.com/slok/sloth/internal/plugin"
 	"github.com/slok/sloth/pkg/common/model"
 	"github.com/slok/sloth/pkg/lib"
+	"github.com/slok/sloth/test/integration/testutils"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -279,7 +280,7 @@ func getExpData(t *testing.T, path string) []byte {
 	require.NoError(t, err)
 
 	var b bytes.Buffer
-	err = template.Must(template.New("").Parse(string(expOutData))).Execute(&b, map[string]string{
+	err = template.Must(template.New("").Funcs(testutils.GoldenTemplateFuncs).Parse(string(expOutData))).Execute(&b, map[string]string{
 		"version": info.Version,
 	})
 	require.NoError(t, err)
