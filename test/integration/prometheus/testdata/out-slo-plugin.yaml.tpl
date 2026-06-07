@@ -173,5 +173,5 @@ groups:
       sloth_service: svc01
       sloth_slo: slo1
       sloth_spec: prometheus/v1
-      sloth_version: {{ .version }}
+      sloth_version: {{ yamlValue .version }}
       tier: "2"

@@ -178,7 +178,7 @@ spec:
         sloth_service: svc01
         sloth_slo: slo1
         sloth_spec: sloth.slok.dev/v1
-        sloth_version: {{ .version }}
+        sloth_version: {{ yamlValue .version }}
       record: sloth_slo_info
   - name: sloth-slo-alerts-svc01-slo1
     rules:
@@ -400,5 +400,5 @@ spec:
         sloth_service: svc01
         sloth_slo: slo02
         sloth_spec: sloth.slok.dev/v1
-        sloth_version: {{ .version }}
+        sloth_version: {{ yamlValue .version }}
       record: sloth_slo_info

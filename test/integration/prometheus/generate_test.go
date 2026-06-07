@@ -24,7 +24,7 @@ func (e expecteOutLoader) mustLoadExp(path string) string {
 		panic(err)
 	}
 
-	tmpl := template.Must(template.New("").Parse(string(fileData)))
+	tmpl := template.Must(template.New("").Funcs(testutils.GoldenTemplateFuncs).Parse(string(fileData)))
 
 	data := map[string]string{"version": e.version}
 	var b bytes.Buffer

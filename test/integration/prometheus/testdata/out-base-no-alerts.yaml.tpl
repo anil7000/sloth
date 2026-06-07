@@ -170,7 +170,7 @@ groups:
       sloth_service: svc01
       sloth_slo: slo1
       sloth_spec: prometheus/v1
-      sloth_version: {{ .version }}
+      sloth_version: {{ yamlValue .version }}
 - name: sloth-slo-sli-recordings-svc01-slo02
   rules:
   - record: slo:sli_error:ratio_rate5m
@@ -344,4 +344,4 @@ groups:
       sloth_service: svc01
       sloth_slo: slo02
       sloth_spec: prometheus/v1
-      sloth_version: {{ .version }}
+      sloth_version: {{ yamlValue .version }}
