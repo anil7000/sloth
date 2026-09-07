@@ -6,9 +6,9 @@
 # Note that environment variables can be set in several places
 # See https://docs.gitlab.com/ee/ci/variables/#cicd-variable-precedence
 variables:
-  BUILD_ARG_GO_VERSION: "1.25.0"
+  BUILD_ARG_GO_VERSION: "1.26.0"
   BUILD_ARG_ALPINE_VERSION: "3.22"
-  GOLANGCI_LINT_VERSION: "v2.7.2-alpine"
+  GOLANGCI_LINT_VERSION: "v2.11.4-alpine"
   REGISTRY_HOST_RO: harbor.vseinstrumenti.ru
   REGISTRY_HOST_RW: harbor-ox1.vseinstrumenti.ru
 
