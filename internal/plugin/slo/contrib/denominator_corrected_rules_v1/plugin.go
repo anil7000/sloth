@@ -102,7 +102,7 @@ func (p plugin) denominatorCorrectedSLIRecordGenerator(slo model.PromSLO, window
 		sliExprTplFmt = `(
 {{.numeratorCorrectionMetric}}{{.window}}{{.filter}}
 * on()
-%s
+(%s)
 )
 /
 (%s)
@@ -195,7 +195,7 @@ func createNumeratorCorrection(slo model.PromSLO, labels map[string]string, curr
 
 	return &rulefmt.Rule{
 		Record: metricSLONumeratorCorrection,
-		Expr:   fmt.Sprintf(`(%s)/(%s)`, numeratorBuffer.String(), denominatorBuffer.String()),
+		Expr:   fmt.Sprintf(`clamp_max((%s)/(%s), 1.0)`, numeratorBuffer.String(), denominatorBuffer.String()),
 		Labels: labels,
 	}, nil
 }
