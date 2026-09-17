@@ -43,7 +43,7 @@ Before promotion, compare generated rules with the previous version and evaluate
 the actual queries in a lab Prometheus. A successful generator run is not an
 end-to-end paging test. Use [Makefile](Makefile) for the project's test targets.
 
-## Development note
+## Attribution
 
-This review guide was added with AI assistance. Upstream code, licenses and
+Upstream code, licenses and
 contributor attribution remain unchanged.
